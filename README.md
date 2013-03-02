@@ -1,21 +1,37 @@
 node-mysql-transaction
 ===
-make transaction connection
+#### transaction wrapper for mysql driver
+based on node-mysql: https://github.com/felixge/node-mysql
+Node-mysql-transaction is working by callback function connection queue.
+
+Install
 ---
 ```
+npm install node-mysql-transaction
+```
+
+
+Make transaction connection
+---
+```
+// tested mysql2.0.0-alpha7
 var mysql = require('mysql');
 
 var transaction =  require('node-mysql-transaction');
 var trCon = transaction({
-    connection: [mysql.createConnection,{
-    user: 'test',
-    password: 'test',
-    database: 'test'
-}],
-  // parallel connection queue number
-  connectionNumber:6,
-  // auto time out rollback in ms
-  timeOut:600
+	mysql driver connection 
+	connection: [mysql.createConnection,{
+		user: ...,
+		password: ...,
+		database: ...,
+		...
+	}],
+	
+	// parallel connection queue number
+	connectionNumber:6,
+	
+	// auto time out rollback in ms
+	timeOut:600
 });
 
 ```
@@ -108,7 +124,6 @@ autoCommit(false);
 ```
 
 Query chain can linked after auto commit off.
-
 ```
 var chain = trCon.chain();
 
@@ -136,6 +151,7 @@ on('result', function(result){
 		query('insert ...).
 		query('insert ...)
 		// auto commit run
+		// they are single transaction
 	}).autoCommit(false);
 }).autoCommit(false);
 
