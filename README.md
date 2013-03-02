@@ -42,6 +42,9 @@ Introduction
 
 ###transaction chain
 
+.chain method is transaction version of original mysql driver's Streaming query. It is easy to make bundling query request and looking good.
+
+
 Make chain
 
 ```
@@ -62,7 +65,6 @@ query('insert ...).
 query('insert ...);
 
 ```
-
 When after transaction complete, auto commit run and 'commit' event emit. If error occur in transaction query chain, auto rollback run and 'rollback' event emit.
 
 Auto commit can off.
@@ -125,6 +127,7 @@ autoCommit(false);
 ```
 
 Query chain can linked after auto commit off.
+
 ```
 var chain = trCon.chain();
 
@@ -160,7 +163,29 @@ on('result', function(result){
 
 ###transaction query
 
-Also, classic query style transaction can usable.
+Also, classic .query style transaction can usable. But you will be change some error handling way.
+
+```
+// With old style error handling
+trCon.query('insert ...',[...],function(err,result){
+	if (err) {
+		result.rollback();
+	}
+	trCon.query('insert ...',['err'],function(err,otherResult){
+		if (err) {
+			otherResult.rollback();
+		}
+		trCon.query('insert ...',[...],function(err,theOtherResult){
+			if (err) {
+				theOtherResult.rollback();
+			}
+			// It's bad idea because you cannot take any message when time out rollback occur.
+		});
+	});
+})
+```
+
+Use rollback event for error handling.
 
 ```
 trCon.query('insert ...',[...],function(err,result){
@@ -175,12 +200,13 @@ trCon.query('insert ...',[...],function(err,result){
 	});
 }).
 on('rollback', function(err){
-	// error to here
+	// error liked to here after rollback occur
 	console.log('trCon.query auto rollback');
 });
 ```
 
 Also auto commit can off.
+
 ```
 trCon.query('insert ...',[...],function(err,result){
 	trCon.query('insert ...',[...],function(err,otherResult){
@@ -202,6 +228,33 @@ on('rollback',function(err){
 	console.log(err);
 });
 ```
+
+Unlike chain method, .query method cannot linked to other event loop. even auto commit is off.
+
+```
+trCon.query('insert ...',[...],function(err,result){
+	trCon.query('insert ...',[...],function(err,theOtherResult){
+		// auto commit off
+		theOtherResult.autoCommit(false);
+		
+		setTimeout(function(){
+			trCon.query('insert ...',[...],function(err,otherTransactionResult){
+				// This is new transaction!!
+				// Earlier 2 insert query now, just waiting time out rollback.
+				...
+			});
+		},0);
+	});
+}).
+on('commit', function(){
+	console.log('manual commit');
+}).
+on('rollback',function(err){
+	console.log(err);
+});
+```
+
+
 
 Update
 ---
