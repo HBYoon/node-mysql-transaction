@@ -146,13 +146,11 @@ on('result', function(result){
 Also, classic query style transaction can usable.
 
 ```
-test.query('insert transaction_test set test=?',[2000],function(err,result){
+trCon.query('insert ...',[...],function(err,result){
 
-	test.query('insert transaction_test set test=?',['err'],function(err,otherResult){
-	
-		console.log('because of error, you cannot see this message on console');
+	trCon.query('insert ...',['err'],function(err,otherResult){
 		
-		test.query('insert transaction_test set test=?',[1998],function(err,theOtherResult){
+		trCon.query('insert ...',[...],function(err,theOtherResult){
 			// now auto rollback is working
 			// if you setup 'rollback' listener, auto rollback also ready to working
 			// you don't need any error handling in the middle of transaction
@@ -161,24 +159,26 @@ test.query('insert transaction_test set test=?',[2000],function(err,result){
 }).
 on('rollback', function(err){
 	// error to here
-	console.log('test.query auto rollback');
+	console.log('trCon.query auto rollback');
 });
+```
 
-test.query('insert transaction_test set test=?',[3000],function(err,result){
-	test.query('insert transaction_test set test=?',[2999],function(err,otherResult){
-		test.query('insert transaction_test set test=?',[2998],function(err,theOtherResult){
+Also auto commit can off.
+```
+trCon.query('insert ...',[...],function(err,result){
+	trCon.query('insert ...',[...],function(err,otherResult){
+		trCon.query('insert ...',[...],function(err,theOtherResult){
 			// auto commit off
 			theOtherResult.autoCommit(false);
 			
-			// time out rollback test
 			setTimeout(function(){
 				theOtherResult.commit();// result.rollback === otherResult.rollback;
-			},1000);
+			},0);
 		});
 	});
 }).
 on('commit', function(){
-	console.log('time out test commit??');
+	console.log('manual commit');
 }).
 on('rollback',function(err){
 	console.log(err);
