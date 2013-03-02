@@ -206,4 +206,5 @@ on('rollback',function(err){
 Update
 ---
 0.0.1: start
+
 0.0.2: Improvement of queue set structure. Multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query method
