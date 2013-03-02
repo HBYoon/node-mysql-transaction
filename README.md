@@ -2,7 +2,8 @@ node-mysql-transaction
 ===
 #### transaction wrapper for mysql driver
 based on node-mysql: https://github.com/felixge/node-mysql
-Node-mysql-transaction is working by callback function connection queue.
+
+node-mysql-transaction is working by callback function connection queue.
 
 Install
 ---
