@@ -172,7 +172,7 @@ trCon.query('insert ...',[...],function(err,result){
 			theOtherResult.autoCommit(false);
 			
 			setTimeout(function(){
-				theOtherResult.commit();// result.rollback === otherResult.rollback;
+				theOtherResult.commit();// result.rollback === otherResult.rollback === theOtherResult.rollback;
 			},0);
 		});
 	});
