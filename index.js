@@ -6,74 +6,44 @@ module.exports = function interfaceFun (opt) {
 	opt.connectionNumber = opt.connectionNumber || 1;
 	opt.timeOut = opt.timeOut || 0;
 	
-	if (opt.connectionNumber === 1) {
-		return (
-		// make connection and each factory function will add some method to connection object
-			quaryFactory(
-				chainFactory(
-					queueHandlerFactory(
-						singleQueueFactory(
-							connectionFactory(opt))))));
-	}
-	return multi(opt);
+	return setup(opt);
 };
 
-function multi (opt) {
+function setup (opt) {
 	var connectionNumber = opt.connectionNumber;
-	var connectionArr = [];
+	var queueConnections = queueFactory()
 	for (var i = 0; i < connectionNumber; i += 1) {
-		connectionArr[i] = (
-			quaryFactory(
-				chainFactory(
-					queueHandlerFactory(
-						singleQueueFactory(
-							connectionFactory(opt))))));
+		queueConnections._addConnection(
+			connectionFactory(opt));
 	};
+	return (
+		quaryFactory(
+			chainFactory(queueConnections)));
+};
+
+var queueFactory = function() {
+	var queue = [];
+	var connections = [];
+	
 	return {
-		// method for parallel connection queue management
-		connections: connectionArr,
-		set: function(){
-			var bestQueue = this.bestQueue();
-			return bestQueue.set.apply(null, arguments);
-		},
-		query: function(){
-			var chain = this.chainQueue();
-			if (chain) {
-				return chain.query.apply(null, arguments);
+		connections: connections,
+		set: function(setPoint){
+			queue.unshift(setPoint);
+			var usableCon = this.usableConnnection();
+			if (usableCon) {
+				return usableCon.nextQuery();
 			}
-			var bestQueue = this.bestQueue();
-			return bestQueue.query.apply(null, arguments);
 		},
-		chain: function(){
-			var bestQueue = this.bestQueue();
-			return bestQueue.chain.apply(null, arguments);
-		},
-		queuesLength: function(){
-			var returnArr = [];
-			for (var i = 0; i < this.connections.length; i += 1) {
-				returnArr[i] = this.connections[i].queueLength;
-			}
-			return returnArr;
-		},
-		chainQueue: function(){
-			// return connection if transaction callback function is on
-			for (var i = 0; i < this.connections.length; i += 1) {
-				if (this.connections[i].chainReady) {
-					return this.connections[i];
+		usableConnnection: function(){
+			var length = connections.length;
+			for (var i = 0; i < length; i += 1) {
+				if (!(connections[i].lockCheck())){
+					return connections[i];
 				}
-			}
+			};
+			return;
 		},
-		bestQueue: function(){
-			var betterQueue = [NaN,Infinity];
-			var queue;
-			for (var i = 0; i < this.connections.length; i += 1) {
-				queue = [i, this.connections[i].queueLength()];
-				if (queue[1] < betterQueue[1]) {
-					betterQueue = queue;
-				}
-			}
-			return this.connections[betterQueue[0]];
-		},
+		_addConnection: queueConnectionFactory(queue, connections),
 	};
 };
 
@@ -87,183 +57,166 @@ function connectionFactory (opt) {
 	return connection;
 };
 
-/*
-base transaction queue
-yy mm dd
-13 03 01 queue design frozen
-13 03 02 unlock function update
-*/
-function singleQueueFactory (connection) {
+function queueConnectionFactory (queue, connections) {
 	
-// option var
-	// Timeout is always check from last query request
-	var timeOut = connection._trOpt.timeOut;
+	return function(connection){
 	
-// base transaction queue
-// internal var
-	// internal connection.query function
-	var query = Object.getPrototypeOf(connection).query;
-	var connectionQuery = Object.getPrototypeOf(connection).query.bind(connection);
-	
-	// timer if opt.timeOut existed
-	var timer;
-	
-	// callback function queue store
-	var store = [];
-	
-	// block new query start when transaction working
-	var lock = false;
-	
-	// current transaction function -> from store.pop();
-	var currentTransaction;
-	
-	// current connection -> only for unlock function
-	var currentConnection;
-	
-	// return transaction connection(safeConnection)
-	// safeConnection has commit and rollback API for transaction finish
-	function safeConnectionFactory (target) {
-		// main query function
-		var safeConnection = new events.EventEmitter();
+		connections.push(connection)
 		
-		safeConnection.usable = function(){
-			return (currentTransaction === target);
-		};
+		var timeOut = connection._trOpt.timeOut;
+		var timer;
 		
-		safeConnection.query = function(){
-			// if current transaction on, new timer set and, query start.
-			var err;
-			if (currentTransaction !== target) {
-				err = new Error('out of transaction');
-				// if request is not a current transaction, query try send error to callback and emit error event
-				for (var i in arguments) {
-					if (typeof arguments[i] === 'function') {
-						return arguments[i](err);
-					}
-				};
-				throw err;
-			}
+		var query = Object.getPrototypeOf(connection).query;
+		var connectionQuery = Object.getPrototypeOf(connection).query.bind(connection);
+		
+		// current transaction function -> from store.pop();
+		var currentTransaction;
+		
+		// current connection -> only for unlock function
+		var currentConnection
+		
+		var lock = false;
+		
+		// return transaction connection(safeConnection)
+		// safeConnection has commit and rollback API for transaction finish
+		function safeConnectionFactory (target) {
+			// main query function
+			var safeConnection = new events.EventEmitter();
+			safeConnection.usable = function(){
+				return (currentTransaction === target);
+			};
 			
-			if (timeOut) {
-				if (timer) {
-					clearTimeout(timer);
+			safeConnection.query = function(){
+				// if current transaction on, new timer set and, query start.
+				var err;
+				if (currentTransaction !== target) {
+					err = new Error('out of transaction');
+					// if request is not a current transaction, query try send error to callback and emit error event
+					for (var i in arguments) {
+						if (typeof arguments[i] === 'function') {
+							return arguments[i](err);
+						}
+					};
+					throw err;
 				}
-				timer = setTimeout(function(){
-					safeConnection.rollback(new Error('transaction request time over'));
-				},timeOut);
-			}
-			return query.apply(connection, arguments);
-		};
-		
-		// if request is not a current trans..
-		safeConnection.commit = function(callback){
-			if (currentTransaction !== target) {
-				return;
-			}
-			
-			currentTransaction = null;
-			safeConnection.emit('commit');
-			safeConnection.removeAllListeners();
 				
-			return commitReq(callback);
-		};
-		
-		// also...
-		safeConnection.rollback = function(reason, callback){
-			if (currentTransaction !== target) {
-				return;
-			}
+				if (timeOut) {
+					if (timer) {
+						clearTimeout(timer);
+					}
+					timer = setTimeout(function(){
+						safeConnection.rollback(new Error('transaction request time over'));
+					},timeOut);
+				}
+				return query.apply(connection, arguments);
+			};
 			
-			currentTransaction = null;
+			// if request is not a current trans..
+			safeConnection.commit = function(callback){
+				if (currentTransaction !== target) {
+					return;
+				}
+				
+				currentTransaction = null;
+				safeConnection.emit('commit');
+				safeConnection.removeAllListeners();
+					
+				return commitReq(callback);
+			};
 			
-			if (typeof reason === 'function') {
-				callback = reason;
-				reason = undefined;
-			}
-			
-			safeConnection.emit('rollback', reason);
-			safeConnection.removeAllListeners();
-			
-			return rollbackReq(reason, callback);
+			// also...
+			safeConnection.rollback = function(reason, callback){
+				if (currentTransaction !== target) {
+					return;
+				}
+				
+				currentTransaction = null;
+				
+				if (typeof reason === 'function') {
+					callback = reason;
+					reason = undefined;
+				}
+				
+				safeConnection.emit('rollback', reason);
+				safeConnection.removeAllListeners();
+				
+				return rollbackReq(reason, callback);
 
+			};
+			
+			return safeConnection;
 		};
 		
-		return safeConnection;
-	};
-	
-	// call the next transaction function
-	function nextQuery () {
-		if (!store.length) {
-			lock = false;
-			return
-		}
-		lock = true;
-		currentTransaction = store.pop();
-		
-		var safeConnection = safeConnectionFactory(currentTransaction);
-		currentConnection = safeConnection;
-		
-		connectionQuery('START TRANSACTION', function(err){
+		function nextQuery () {
+			if (!queue.length) {
+				lock = false;
+				return
+			}
+			lock = true;
+			currentTransaction = queue.pop();
 			
-			if (!currentTransaction) {
-				return;
-			}
-			if (err) {
-				nextQuery();
-				return currentTransaction(err);
-			}
-			currentTransaction(undefined, safeConnection);
-		});
-	};
-	
-	
-	
-	// internal commit and rollback request query sender
-	function commitReq (callback) {
-		connectionQuery('COMMIT', function(err, result){
-			if(callback){
-				callback(err);
-			}
-		});
-		nextQuery();
-	};
-	
-	function rollbackReq (reason, callback) {
-		connectionQuery('ROLLBACK', function(err, result){
-			if (callback) {
+			var safeConnection = safeConnectionFactory(currentTransaction);
+			currentConnection = safeConnection;
+			
+			connectionQuery('START TRANSACTION', function(err){
+				
+				if (!currentTransaction) {
+					return;
+				}
 				if (err) {
+					nextQuery();
+					return currentTransaction(err);
+				}
+				currentTransaction(undefined, safeConnection);
+			});
+		};
+		
+		// internal commit and rollback request query sender
+		function commitReq (callback) {
+			connectionQuery('COMMIT', function(err, result){
+				if(callback){
 					callback(err);
 				}
-				callback(reason);
+			});
+			nextQuery();
+		};
+		
+		function rollbackReq (reason, callback) {
+			connectionQuery('ROLLBACK', function(err, result){
+				if (callback) {
+					if (err) {
+						callback(err);
+					}
+					callback(reason);
+				}
+			});
+			nextQuery();
+		};
+		
+		connection.unlock = function(forced){
+			if (forced === 'commit') {
+				return currentConnection.commit();
 			}
-		});
-		nextQuery();
+			currentConnection.rollback(new Error('forced rollback'));
+		};
+		
+		connection.lockCheck = function(){
+			return lock;
+		};
+		
+		connection.nextQuery = function(){
+			if (lock) {
+				return;
+			}
+			nextQuery();
+		};
+		
+		connection.query = function(){
+			throw new Error('unsafe transaction try');
+		};
+		
+		return connection;
 	};
-	
-	// transaction start point set
-	// start point is the callback function what will receive error or safeConnection
-	connection.set = function(setPoint) {
-		store.unshift(setPoint);
-		if (!lock) {
-			return nextQuery();
-		}
-	};
-	
-	// unlock can forced commit and rollback from the outside
-	connection.unlock = function(forced){
-		if (forced === 'commit') {
-			return currentConnection.commit();
-		}
-		currentConnection.rollback(new Error('forced rollback'));
-	}
-	
-	connection.queueLength = function(){
-		return store.length;
-	};
-	
-	connection._store = store;
-	
-	return connection;
 };
 
 /*
@@ -471,7 +424,7 @@ test pass 130302
 */
 
 function quaryFactory (connection) {
-	connection.chainReady = false;
+
 	var chainOn = false;
 	
 	function resultObjectSet (result, safeCon) {
@@ -522,7 +475,9 @@ function quaryFactory (connection) {
 			// state query function change
 			// ready to link to the next transaction query
 			stateQuery = stateUp(safeCon, eventObj);
-			connection.chainReady = true;
+			
+			// safeCon.chainReady = true;
+			
 			chainOn = false;
 			
 			callback(err, result, raw);
@@ -530,7 +485,8 @@ function quaryFactory (connection) {
 			// state query function rollback
 			// ready to take new transaction queue
 			stateQuery = stateUp();
-			connection.chainReady = false;
+			
+			// safeCon.chainReady = false;
 			
 			// auto commit
 			if (!chainOn && result._autoCommit) {

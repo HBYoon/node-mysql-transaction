@@ -5,7 +5,7 @@
 
 var mysql = require('mysql');
 
-var transaction =  require('node-mysql-transaction');
+var transaction =  require('../index.js');
 var test = transaction({
 	connection: [mysql.createConnection,{
 		user: 'test',
@@ -63,7 +63,9 @@ for (var i = 0; i < to; i+=1) {
 
 
 /* //<<<<<<<<<<<<<block
+
 // odd number test
+var to = 10000;
 for (var i = 0; i < to; i+=1) {
 	test.query('select test from transaction_test where num=?',[i+1],function(err,result){
 		if (result) {
@@ -234,6 +236,7 @@ on('rollback',function(err){
 test.query('insert transaction_test set test=?',[4000],function(err,result){
 	test.query('insert transaction_test set test=?',[3999],function(err,otherResult){
 		// you can skip the final callback function if you setup commit and rollback event listeners
+		// if you are not make event listeners, function throw error
 		test.query('insert transaction_test set test=?',[3998]);
 	});
 }).
@@ -272,7 +275,7 @@ on('rollback',function(err){
 // commit after event loop
 test.set(function(err, safeCon){
 	safeCon.on('commit', function(){
-		console.log('commit!');
+		console.log('79 / 71 commit, after several event loop');
 	});
 	safeCon.on('rollback', function(err){
 		console.log(err);
@@ -311,7 +314,7 @@ test.set(function(err, safeCon){
 		// console.log(result);
 	});
 	reqQuery2.on('result', function(result){
-		safeCon.rollback('rollback yeap!')
+		safeCon.rollback('23 / 11 rollback yeap!')
 	});
 });
 

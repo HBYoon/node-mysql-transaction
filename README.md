@@ -189,7 +189,8 @@ trCon.query('insert ...',[...],function(err,result){
 			theOtherResult.autoCommit(false);
 			
 			setTimeout(function(){
-				theOtherResult.commit();// result.rollback === otherResult.rollback === theOtherResult.rollback;
+				theOtherResult.commit();
+				// result.rollback === otherResult.rollback === theOtherResult.rollback;
 			},0);
 		});
 	});
@@ -201,3 +202,8 @@ on('rollback',function(err){
 	console.log(err);
 });
 ```
+
+Update
+---
+0.0.1: start
+0.0.2: Improvement of queue set structure. Multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query method
