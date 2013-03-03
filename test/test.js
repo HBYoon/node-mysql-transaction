@@ -13,11 +13,11 @@ var test = transaction({
 		database: 'test'
 	}],
 	// parallel connection queue number
-	connectionNumber:2,
+	connectionNumber:3,
 	
 	// when queue length increase or queue length is longer than connectionNumber * 32, 
 	// make temporary connection for increased volume of async work.
-	dynamicConnection:6,
+	dynamicConnection:3,
 	
 	// auto time out rollback in ms
 	timeOut:600
@@ -92,11 +92,12 @@ for (var i = 0; i < to; i+=1) {
 
 // chain transaction API test
 
+
 var chain = test.chain();
 
 chain.
 on('commit', function(){
-	console.log('number commit');
+	console.log('chain1 commit');
 }).
 // if you don't make error event handler for query
 // each query take auto error event handler to the auto rollback
@@ -134,15 +135,12 @@ on('result', function(result){
 	}).autoCommit(false);
 }).autoCommit(false);
 
-// */
-
-/* //<<<<<<<<<<<<<block
 //chain error test
 var chain2 = test.chain();
 
 chain2.
 on('commit', function(){
-	console.log('number commit');
+	console.log('chain2 commit');
 }).
 on('rollback', function(err){
 	console.log('chain2 rollback');
@@ -161,7 +159,52 @@ on('result', function(result){
 	}).autoCommit(false);
 }).autoCommit(false);
 
+var chain3 = test.chain();
+chain3.
+on('commit', function(){
+	console.log('chain3 commit');
+}).
+on('rollback', function(err){
+	console.log(err);
+}).
+query('insert transaction_test set test=?',[15]).
+query('insert transaction_test set test=?',[16]).
+query('insert transaction_test set test=?',[17]).
+query('insert transaction_test set test=?',[18]).
+query('insert transaction_test set test=?',[19]).
+query('insert transaction_test set test=?',[20])
 
+// transaction chain with loop!!!
+var chain4 = test.chain();
+chain4.
+on('commit', function(){
+	console.log('chain4 commit');
+}).
+on('rollback', function(err){
+	console.log(err);
+}).
+setMaxListeners(0);
+
+for(var i = 0; i < 10; i+=1) {
+	// working good :)
+	chain4.query('insert transaction_test set test=?',[i*100]);
+}
+
+var chain5 = test.chain();
+chain5.
+on('commit', function(){
+	console.log('chain4 commit');
+}).
+on('rollback', function(err){
+	console.log('chain4 rollback');
+	console.log(err);
+}).
+setMaxListeners(0);
+
+for(var i = 0; i < 10; i+=1) {
+	if (i===8) { i='error maker' }
+	chain5.query('insert transaction_test set test=?',[i*10000]);
+}
 
 // */
 
@@ -270,28 +313,10 @@ on('rollback',function(err){
 	console.log(err);
 });
 
-test.end();
 // */
 
 
-test.query('insert transaction_test set test=?',[4000],function(err,result){
-	test.query('insert transaction_test set test=?',[3999],function(err,otherResult){
-		// you can skip the final callback function if you setup commit and rollback event listeners
-		// if you are not make event listeners, function throw error
-		console.log('run???');
-		test.query('insert transaction_test set test=?',[3998]);
-	});
-}).
-on('commit', function(){
-	console.log('nice auto commit');
-}).
-on('rollback',function(err){
-	console.log(err);
-});
-
-
-
-/* //<<<<<<<<<<<<<block
+// /* //<<<<<<<<<<<<<block
 
 // connection.set
 // connection.set is the base API for queue reservation

@@ -618,11 +618,6 @@ function quaryFactory (queue) {
 	};
 	
 	function callbackQuery (safeCon, arg, position, eventObj) {
-		if (arg[1][0] === 3999){
-			console.log(eventObj);
-			console.log(safeCon);
-			console.log(arg);
-		}
 		var callback = arg[position];
 		
 		arg[position] = function (err, result, raw) {

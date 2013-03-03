@@ -56,10 +56,10 @@ var chain = trCon.chain();
 
 chain.
 on('commit', function(){
-  console.log('number commit');
+	console.log('number commit');
 }).
 on('rollback', function(err){
-  console.log(err);
+	console.log(err);
 });
 
 chain.
@@ -162,7 +162,24 @@ on('result', function(result){
 		// they are single transaction
 	}).autoCommit(false);
 }).autoCommit(false);
+```
 
+chain can make loop.
+```
+var chain = trCon.chain();
+chain.
+on('commit', function(){
+	console.log('chain commit');
+}).
+on('rollback', function(err){
+	console.log(err);
+}).
+setMaxListeners(0);
+
+for(var i = 0; i < 10; i+=1) {
+	// loop in transaction
+	chain.query('insert ...',[...]);
+}
 ```
 
 ###transaction query

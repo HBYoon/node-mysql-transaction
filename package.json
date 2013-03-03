@@ -1,6 +1,6 @@
 {
   "name": "node-mysql-transaction",
-  "version": "0.0.2",
+  "version": "0.0.21",
   "description": "transactions wrapper for node-mysql 2.0 driver",
   "main": "index.js",
   "directories": {
