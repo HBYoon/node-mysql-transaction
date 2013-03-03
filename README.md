@@ -3,7 +3,7 @@ node-mysql-transaction
 #### transaction wrapper for mysql driver
 based on node-mysql: https://github.com/felixge/node-mysql
 
-node-mysql-transaction is working by callback function connection queue.
+node-mysql-transaction is working by single callback function queue with dynamic multi connection structure.
 
 Install
 ---
@@ -29,7 +29,11 @@ var trCon = transaction({
 	}],
 	
 	// parallel connection queue number
-	connectionNumber:6,
+	connectionNumber:3,
+	
+	// when queue length increase or queue length is longer than connectionNumber * 32, 
+	// make temporary connection for increased volume of async work.
+	dynamicConnection:3,
 	
 	// auto time out rollback in ms
 	timeOut:600
@@ -254,10 +258,15 @@ on('rollback',function(err){
 });
 ```
 
+###Terminating
+Call end method. Method sending error to all callback function in the queue and connection terminating after current transaction finished.
+```
+trCon.end()
+```
 
 
 Update
 ---
 0.0.1: start
 
-0.0.2: Improvement of queue set structure. Multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query method
+0.0.2: Improvement of queue set structure. before, multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query, chain method

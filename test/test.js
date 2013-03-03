@@ -13,11 +13,15 @@ var test = transaction({
 		database: 'test'
 	}],
 	// parallel connection queue number
-	connectionNumber:6,
+	connectionNumber:2,
+	
+	// when queue length increase or queue length is longer than connectionNumber * 32, 
+	// make temporary connection for increased volume of async work.
+	dynamicConnection:6,
+	
 	// auto time out rollback in ms
 	timeOut:600
 });
-
 
 /* //<<<<<<<<<<<<<block
 
@@ -46,6 +50,8 @@ for (var i = 0; i < to; i+=1) {
 			safeCon.rollback();
 			if (num === to) {
 				console.timeEnd('test');
+				
+				
 				// time per connectionNumber in 10000 loop in my pc with mariaDB 5.5
 				// better speed == more cpu usage
 				// 32 -> 112xx ~ 114xx ms
@@ -130,7 +136,7 @@ on('result', function(result){
 
 // */
 
-// /* //<<<<<<<<<<<<<block
+/* //<<<<<<<<<<<<<block
 //chain error test
 var chain2 = test.chain();
 
@@ -154,6 +160,8 @@ on('result', function(result){
 		query('insert transaction_test set test=?',[14])
 	}).autoCommit(false);
 }).autoCommit(false);
+
+
 
 // */
 
@@ -262,10 +270,28 @@ on('rollback',function(err){
 	console.log(err);
 });
 
+test.end();
 // */
 
 
-// /* //<<<<<<<<<<<<<block
+test.query('insert transaction_test set test=?',[4000],function(err,result){
+	test.query('insert transaction_test set test=?',[3999],function(err,otherResult){
+		// you can skip the final callback function if you setup commit and rollback event listeners
+		// if you are not make event listeners, function throw error
+		console.log('run???');
+		test.query('insert transaction_test set test=?',[3998]);
+	});
+}).
+on('commit', function(){
+	console.log('nice auto commit');
+}).
+on('rollback',function(err){
+	console.log(err);
+});
+
+
+
+/* //<<<<<<<<<<<<<block
 
 // connection.set
 // connection.set is the base API for queue reservation
