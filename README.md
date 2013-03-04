@@ -20,7 +20,7 @@ var mysql = require('mysql');
 
 var transaction =  require('node-mysql-transaction');
 var trCon = transaction({
-	mysql driver connection 
+	// mysql driver set 
 	connection: [mysql.createConnection,{
 		user: ...,
 		password: ...,
@@ -28,8 +28,9 @@ var trCon = transaction({
 		...
 	}],
 	
-	// parallel connection queue number
-	connectionNumber:3,
+	// number of static parallel connection
+	// you can chose it 0, if you want to use only dynamic connection.
+	staticConnection:3,
 	
 	// when queue length increase or queue length is longer than connectionNumber * 32, 
 	// make temporary connection for increased volume of async work.
@@ -38,8 +39,8 @@ var trCon = transaction({
 	// auto time out rollback in ms
 	timeOut:600
 });
-
 ```
+
 
 Introduction
 ---
@@ -63,8 +64,6 @@ on('rollback', function(err){
 });
 
 chain.
-query('insert ...).
-query('insert ...).
 query('insert ...).
 query('insert ...);
 
@@ -165,6 +164,7 @@ on('result', function(result){
 ```
 
 chain can make loop.
+
 ```
 var chain = trCon.chain();
 chain.
@@ -176,6 +176,8 @@ on('rollback', function(err){
 }).
 setMaxListeners(0);
 
+// loop make a lot of event listeners to chain
+
 for(var i = 0; i < 10; i+=1) {
 	// loop in transaction
 	chain.query('insert ...',[...]);
@@ -184,7 +186,7 @@ for(var i = 0; i < 10; i+=1) {
 
 ###transaction query
 
-Also, classic .query style transaction can usable. But you will be change some error handling way.
+.query style transaction can usable. But you will be change some error handling way.
 
 ```
 // With old style error handling
@@ -287,3 +289,5 @@ Update
 0.0.1: start
 
 0.0.2: Improvement of queue set structure. before, multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query, chain method
+
+0.0.22: Transaction can work only dynamic connection without any static connection.

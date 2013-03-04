@@ -3,7 +3,7 @@ var events = require("events");
 
 module.exports = function interfaceFun (opt) {
 	opt.connection = opt.connection;
-	opt.connectionNumber = opt.connectionNumber || 0;
+	opt.connectionNumber = opt.connectionNumber || opt.staticConnection || 0;
 	opt.dynamicConnection = opt.dynamicConnection || 4;
 	opt.dynamicConnectionLoopTime = opt.dynamicConnectionLoopTime || 200;
 	opt.timeOut = opt.timeOut || 0;
@@ -46,6 +46,7 @@ function queueFactory (opt){
 		};
 		throw err;
 	};
+	
 	var queueControl = {
 		connections: connectionsArr,
 		
@@ -300,7 +301,7 @@ function queueConnection (connection, timeOut, queue, connectionsArr){
 /*
 tested 
 yymmdd
-130303
+130304
 */
 function dynamicConnectionFactory (queueControl) {
 	var number = queueControl._opt.dynamicConnection;
@@ -365,12 +366,15 @@ function dynamicConnectionFactory (queueControl) {
 	function loopOff () {
 		on = false;
 		(function innerLoop () {
-			if (dynamicCount > 0) {
-				decreaseDynamicConnection();
-				return innerLoop();
+			if (!(dynamicCount > 0)) {
+				return;
 			}
-		})()
-	}
+			decreaseDynamicConnection();
+			if (!on) {
+				return setTimeout(innerLoop,loopTime);
+			}
+		})();
+	};
 	
 	queueControl.dynamicConnection = {
 		loopOn: loopOn,
