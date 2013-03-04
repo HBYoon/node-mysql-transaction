@@ -13,21 +13,24 @@ var test = transaction({
 		database: 'test'
 	}],
 	// parallel connection queue number
-	connectionNumber:3,
+	connectionNumber:0,
 	
 	// when queue length increase or queue length is longer than connectionNumber * 32, 
 	// make temporary connection for increased volume of async work.
-	dynamicConnection:3,
+	dynamicConnection:6,
 	
 	// auto time out rollback in ms
 	timeOut:600
 });
 
-/* //<<<<<<<<<<<<<block
+// /* //<<<<<<<<<<<<<block
 
 // simple loop test
+setTimeout(function(){
+
+
 var number = 0;
-var to = 10000;
+var to = 4000;
 console.time('test');
 for (var i = 0; i < to; i+=1) {
 	// transaction set, most low level queue method
@@ -65,6 +68,8 @@ for (var i = 0; i < to; i+=1) {
 		});
 	});
 }
+
+},6000);
 //*/
 
 

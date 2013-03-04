@@ -3,9 +3,9 @@ var events = require("events");
 
 module.exports = function interfaceFun (opt) {
 	opt.connection = opt.connection;
-	opt.connectionNumber = opt.connectionNumber || 1;
-	opt.dynamicConnection = opt.dynamicConnection || opt.connectionNumber;
-	opt.dynamicConnectionLoopTime = opt.dynamicConnectionLoopTime || 600;
+	opt.connectionNumber = opt.connectionNumber || 0;
+	opt.dynamicConnection = opt.dynamicConnection || 4;
+	opt.dynamicConnectionLoopTime = opt.dynamicConnectionLoopTime || 200;
 	opt.timeOut = opt.timeOut || 0;
 	
 	return setup(opt);
@@ -22,6 +22,7 @@ function setup (opt) {
 function queueFactory (opt){
 	var queue = [];
 	var connectionsArr = [];
+	var dc = (!!opt.dynamicConnection);
 	
 	function queueCleaner (setPoint) {
 		var err = new Error('queue cleaner work');
@@ -45,15 +46,17 @@ function queueFactory (opt){
 		};
 		throw err;
 	};
-	
 	var queueControl = {
 		connections: connectionsArr,
 		
-		set: function(setPoint){
+		set: function (setPoint){
 			queue.unshift(setPoint);
 			var usableCon = this.usableConnnection();
 			if (usableCon) {
-				return usableCon.nextQuery();
+				usableCon.nextQuery();
+			}
+			if (dc) {
+				this.dynamicConnection.loopOn();
 			}
 		},
 		
@@ -334,40 +337,44 @@ function dynamicConnectionFactory (queueControl) {
 		}
 	};
 	
-	function dynamicLoop () {
-		var length = queueControl.queueLength();
-		var delta = length - lastQueueLength;
-		if (delta > 0 || length > baseLine) {
-			increaseDynamicConnection();
-		} else {
-			decreaseDynamicConnection();
-		}
-		
-		lastQueueLength = length;
+	function loopOn () {
 		if (on) {
-			setTimeout(dynamicLoop,loopTime);
+			return;
 		}
+		on = true;
+		(function dynamicLoop(){
+			var length = queueControl.queueLength();
+			var delta = length - lastQueueLength;
+			if (delta > 0 || length > baseLine) {
+				increaseDynamicConnection();
+			} else {
+				decreaseDynamicConnection();
+			}
+			
+			if (length === 0 && delta === 0) {
+				return loopOff();
+			}
+			
+			lastQueueLength = length;
+			if (on) {
+				return setTimeout(dynamicLoop,loopTime);
+			}
+		})();
 	};
 	
-	function offLoop () {
-		if (dynamicCount > 0) {
-			decreaseDynamicConnection()
-			return offLoop()
-		}
+	function loopOff () {
+		on = false;
+		(function innerLoop () {
+			if (dynamicCount > 0) {
+				decreaseDynamicConnection();
+				return innerLoop();
+			}
+		})()
 	}
 	
 	queueControl.dynamicConnection = {
-		loopOn: function (){
-			if (on) {
-				return;
-			}
-			on = true;
-			dynamicLoop();
-		},
-		loopOff: function (){
-			on = false;
-			offLoop();
-		},
+		loopOn: loopOn,
+		loopOff: loopOff,
 		isOn: function(){
 			return on;
 		},
