@@ -291,3 +291,5 @@ Update
 0.0.2: Improvement of queue set structure. before, multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query, chain method
 
 0.0.22: Transaction can work only dynamic connection without any static connection.
+
+0.0.23: fix process.nextTick recursive. now module fit to the node.js 0.10
