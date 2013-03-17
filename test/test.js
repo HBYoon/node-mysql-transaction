@@ -13,7 +13,7 @@ var test = transaction({
 		database: 'test'
 	}],
 	// static parallel connection queue number
-	staticConnection:4,
+	staticConnection:2,
 	
 	// when queue length increase or queue length is longer than connectionNumber * 32, 
 	// make temporary connection for increased volume of async work.
@@ -23,7 +23,7 @@ var test = transaction({
 	timeOut:600
 });
 
-// /* //<<<<<<<<<<<<<block
+/* //<<<<<<<<<<<<<block
 // simple loop test
 setTimeout(function(){
 	var number = 0;
@@ -60,8 +60,6 @@ setTimeout(function(){
 // /* //<<<<<<<<<<<<<block
 
 // chain transaction API test
-
-
 var chain = test.chain();
 
 chain.
@@ -141,7 +139,7 @@ query('insert transaction_test set test=?',[16]).
 query('insert transaction_test set test=?',[17]).
 query('insert transaction_test set test=?',[18]).
 query('insert transaction_test set test=?',[19]).
-query('insert transaction_test set test=?',[20])
+query('insert transaction_test set test=?',[20]);
 
 // transaction chain with loop!!!
 var chain4 = test.chain();
@@ -154,7 +152,7 @@ on('rollback', function(err){
 }).
 setMaxListeners(0);
 
-for(var i = 0; i < 10; i+=1) {
+for(var i = 0; i < 5; i+=1) {
 	// working good :)
 	chain4.query('insert transaction_test set test=?',[i*100]);
 }
@@ -162,18 +160,19 @@ for(var i = 0; i < 10; i+=1) {
 var chain5 = test.chain();
 chain5.
 on('commit', function(){
-	console.log('chain4 commit');
+	console.log('chain5 commit');
 }).
 on('rollback', function(err){
-	console.log('chain4 rollback');
+	console.log('chain5 rollback');
 	console.log(err);
 }).
 setMaxListeners(0);
 
-for(var i = 0; i < 10; i+=1) {
+for(var i = 0; i < 30; i+=1) {
 	if (i===8) { i='error maker' }
 	chain5.query('insert transaction_test set test=?',[i*10000]);
 }
+
 
 // */
 
@@ -181,7 +180,7 @@ for(var i = 0; i < 10; i+=1) {
 
 // connection.query function test
 // it also transaction, but range of chance to make transaction link is 
-// <<< only limited in a query's callback function in a same event loop >>>
+// <<< only limited in a query's callback function in a same sync >>>
 // conclusion -> use connection.chain transaction
 
 
