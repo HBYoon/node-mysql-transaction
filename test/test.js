@@ -240,17 +240,21 @@ test.query('insert transaction_test set test=?',[3000],function(err,result){
 			
 			// time out rollback test
 			setTimeout(function(){
-				theOtherResult.commit();// result.rollback === otherResult.rollback;
+				theOtherResult.commit(function(err){
+					if(!err){
+						console.log('time out rollback off');
+					}
+				});// result.rollback === otherResult.rollback;
 			},1000);
 		});
 	});
-}).
-on('commit', function(){
-	console.log('time out test commit??');
-}).
-on('rollback',function(err){
-	console.log(err);
-});
+})//.
+// on('commit', function(){
+	// console.log('time out test commit??');
+// }).
+// on('rollback',function(err){
+	// console.log(err);
+// });
 
 test.query('insert transaction_test set test=?',[4000],function(err,result){
 	test.query('insert transaction_test set test=?',[3999],function(err,otherResult){
