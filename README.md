@@ -3,7 +3,7 @@ node-mysql-transaction
 #### transaction wrapper for mysql driver
 based on node-mysql: https://github.com/felixge/node-mysql
 
-node-mysql-transaction is run by single callback function queue with dynamic multi connection structure.
+node-mysql-transaction is run by single callback function queue with dynamic connection pool structure.
 
 Install
 ---
@@ -28,18 +28,28 @@ var trCon = transaction({
     ...
   }],
   
-  // number of static parallel connection
-  // you can chose it 0, if you want to use only dynamic connection.
-  staticConnection:3,
+  // create temporary connection for increased volume of async work.
+  // if request queue became empty, 
+  // start soft removing process of the connection.
+  // recommended for normal usage.
+  dynamicConnection: 32,
   
-  // when queue length is more than 0, 
-  // make temporary connection for increased volume of async work.
-  dynamicConnection:3,
+  // set dynamicConnection soft removing time.
+  idleConnectionCutoffTime: 600,
   
-  // auto time out rollback in ms
+  // auto timeout rollback time in ms
   // turn off is 0
-  timeOut:600
+  timeout:600
 });
+
+// listener of bubbled exception from connections.
+trCon.on('error', function(err){
+  // internal error handling was completed
+  // use for logging or end method caller
+  ...
+  trCon.end();
+});
+
 ```
 
 
@@ -121,7 +131,7 @@ on('result', function(result){
   query('insert ...').
   on('result',function(result){
     chain.
-    query('insert ...',[result.insertId]).
+    query('insert ...',[...]).
     query('insert ...').
     query('insert ...').
     query('insert ...')
@@ -193,6 +203,66 @@ for(var i = 0; i < 10; i+=1) {
 }
 ```
 
+###transaction set
+Transaction chain is the application layer of the transaction set. You can use this set method for transaction, also. But connection set doesn't have any transaction helper, like transaction chain. So, you must to check error for every query request. And you must to select rollback or commit for each transaction capsule.
+```
+trCon.set(function(err, safeCon){
+  safeCon.on('commit', function(){
+    console.log('79 / 71 commit, after several event loop');
+  });
+  safeCon.on('rollback', function(err){
+    console.log(err);
+  });
+  safeCon.query('insert ......',[......],function(err,result){
+    if (err) {
+      safeCon.rollback();
+    }
+    safeCon.query('insert ......',[......],function(err,result){
+      if (err) {
+        safeCon.rollback(err);
+      }
+	  // .set transaction can work after several event loop.
+	  // if you forget commit or rollback, 
+	  // and no timeout setting, connection will be leak.
+	  safeCon.commit();
+    });
+  });
+});
+```
+
+Event provide better way for transaction in some case.
+
+```
+test.set(function(err, safeCon){
+  safeCon.on('commit', function(){
+    console.log('23731 commit!');
+  }).
+  on('rollback', function(err){
+    console.log('23731 rollback');
+    console.log(err);
+  });
+
+  reqQuery1 = safeCon.query('insert ......', [...]);
+  reqQuery2 = safeCon.query('insert ......', [...]);
+
+  reqQuery1.
+  on('result', function(result){
+    console.log('23731: ' + result.insertId);
+  }).
+  on('error', function(err){
+    safeCon.rollback(err);
+  });
+
+  reqQuery2.
+  on('result', function(result){
+    safeCon.commit()
+  }).
+  on('error', function(err){
+    safeCon.rollback(err);
+  });
+});
+```
+
 ###Terminating
 
 Call end method. Method sending error to all callback function in the queue and connection terminating after current transaction finished.
@@ -203,106 +273,9 @@ trCon.end()
 
 ###transaction query
 
-query is not recommended method. The query method can be removal in a next version.
+removed
 
-.query style transaction can usable. But, in some case, the method is slower than chain. And you will make a lot of indent.
 
-```
-// With old style error handling
-// if you choose this way, auto rollback and timeout rollback is turn off
-trCon.query('insert ...',[...],function(err,result){
-  if (err) {
-    return result.rollback();
-  }
-  trCon.query('insert ...',[...],function(err,otherResult){
-    if (err) {
-      return otherResult.rollback();
-    }
-    trCon.query('insert ...',[...],function(err,theOtherResult){
-      if (err) {
-        return theOtherResult.rollback();
-      }
-      theOtherResult.commit(function(err){
-        if (!err) {
-          console.log('complete')
-        }
-      });
-    });
-  });
-})
-```
-
-You can choose rollback event for an error handling. In this way, you can turn on auto rollback and timeout rollback.
-
-```
-// now auto rollback and timeout rollback is working.
-// you don't need any error handling in the middle of transaction
-// If you call the query method after call end method, error occurred to callback function
-
-trCon.query('insert ...',[...],function(err,result){
-
-  trCon.query('insert ...',['err'],function(err,otherResult){
-    
-    trCon.query('insert ...',[...],function(err,theOtherResult){
-      
-    });
-  });
-}).
-on('rollback', function(err){
-  // normal error linked to here after rollback occur
-  console.log('trCon.query auto rollback');
-});
-```
-
-auto commit can turn off.
-
-```
-// result.rollback === otherResult.rollback === theOtherResult.rollback;
-
-trCon.query('insert ...',[...],function(err,result){
-  trCon.query('insert ...',[...],function(err,otherResult){
-    trCon.query('insert ...',[...],function(err,theOtherResult){
-      // auto commit off
-      theOtherResult.autoCommit(false);
-      
-      setTimeout(function(){
-        theOtherResult.commit();
-        
-      },0);
-    });
-  });
-}).
-on('commit', function(){
-  console.log('manual commit');
-}).
-on('rollback',function(err){
-  console.log(err);
-});
-```
-
-Unlike chain method, .query method cannot linked to other event loop. even auto commit is off.
-
-```
-trCon.query('insert ...',[...],function(err,result){
-  trCon.query('insert ...',[...],function(err,theOtherResult){
-    // auto commit off
-    theOtherResult.autoCommit(false);
-    
-    setTimeout(function(){
-      trCon.query('insert ...',[...],function(err,otherTransactionResult){
-        // This is new transaction!!
-        // Now, earlier 2 insert query  just waiting timeout rollback.
-        ...
-      });
-    },0);
-  });
-}).
-on('commit', function(){
-  console.log('manual commit');
-}).
-on('rollback',function(err){
-  console.log(err);
-});
 ```
 
 
@@ -319,3 +292,5 @@ Update
 0.0.3: default chain method setMaxListeners is 0. code and internal API update.
 
 0.0.31: query method update.
+
+0.1.0: redesigned internal connection pool and queue. pool and queue performance improved. more solid error handling.  removed query method. bug fix. internal API changed, but minimum userland change.

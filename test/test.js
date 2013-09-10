@@ -13,17 +13,23 @@ var test = transaction({
 		database: 'test'
 	}],
 	// static parallel connection queue number
-	staticConnection:2,
+	staticConnection:10,
 	
 	// when queue length increase or queue length is longer than connectionNumber * 32, 
 	// make temporary connection for increased volume of async work.
-	dynamicConnection:6,
+	dynamicConnection:1,
 	
 	// auto time out rollback in ms
 	timeOut:600
 });
 
+setTimeout(function(){
+  console.log('end to end');
+  test.end();
+},10000)
+
 /* //<<<<<<<<<<<<<block
+
 // simple loop test
 setTimeout(function(){
 	var number = 0;
@@ -38,11 +44,6 @@ setTimeout(function(){
 					// I don't want any odd number!
 					safeCon.commit();
 					
-					
-					// query can not work after transaction end(commit or rollback)
-					// query('insert transaction_test set test=?',[num],function(err,result){
-						// console.log(err);//[Error: out of transaction]
-					// });
 				}
 				
 				// when after commit...oops!
@@ -57,7 +58,7 @@ setTimeout(function(){
 },1000);
 //*/
 
-// /* //<<<<<<<<<<<<<block
+/* //<<<<<<<<<<<<<block
 
 // chain transaction API test
 var chain = test.chain();
@@ -94,8 +95,6 @@ on('result', function(result){
 			chain.commit();
 		}).
 		autoCommit(false);
-		
-		// finally auto commit run
 	
 	// each chain set it's own auto commit function if you did not set auto commit off
 	// so must need auto commit off for make chain stream to after event loop
@@ -173,118 +172,6 @@ for(var i = 0; i < 30; i+=1) {
 	chain5.query('insert transaction_test set test=?',[i*10000]);
 }
 
-
-// */
-
-// /* //<<<<<<<<<<<<<block
-
-// connection.query function test
-// it also transaction, but range of chance to make transaction link is 
-// <<< only limited in a query's callback function in a same sync >>>
-// conclusion -> use connection.chain transaction
-
-
-test.query('insert transaction_test set test=?',[199],function(err,result){
-	result.rollback();
-});
-
-test.query('insert transaction_test set test=?',[133],function(err,result){
-	//auto commit
-});
-
-// you can make connect.query transaction chain in callback function 
-test.query('insert transaction_test set test=?',[1000],function(err,result){
-	// formal error handling way -> this is bad idea, because you cannot take any information about timeout rollback event
-	if (err) {
-		result.rollback();// result.rollback === otherResult.rollback;
-	}
-	test.query('insert transaction_test set test=?',['err'],function(err,otherResult){
-		// again...
-		if (err) {
-			// oops! there is no return...
-			otherResult.rollback();
-		}
-		test.query('insert transaction_test set test=?',[998],function(err,theOtherResult){
-			// and again...
-			if (err) {
-				console.log(err) // occur out of transaction error
-				theOtherResult.rollback();// result.rollback === otherResult.rollback === theOtherResult.rollback;
-			}
-		});
-	});
-});
-
-test.query('insert transaction_test set test=?',[2000],function(err,result){
-
-	test.query('insert transaction_test set test=?',['err'],function(err,otherResult){
-	
-		console.log('because of error, you cannot see this message on console');
-		
-		test.query('insert transaction_test set test=?',[1998],function(err,theOtherResult){
-			// now auto rollback is working
-			// if you setup 'rollback' listener, auto rollback also ready to working
-			// you don't need any error handling in the middle of transaction
-		});
-	});
-}).
-on('rollback', function(err){
-	// error to here
-	console.log('test.query auto rollback');
-});
-
-test.query('insert transaction_test set test=?',[3000],function(err,result){
-	test.query('insert transaction_test set test=?',[2999],function(err,otherResult){
-		test.query('insert transaction_test set test=?',[2998],function(err,theOtherResult){
-			// auto commit off
-			theOtherResult.autoCommit(false);
-			
-			// time out rollback test
-			setTimeout(function(){
-				theOtherResult.commit(function(err){
-					if(!err){
-						console.log('time out rollback off');
-					}
-				});// result.rollback === otherResult.rollback;
-			},1000);
-		});
-	});
-})//.
-// on('commit', function(){
-	// console.log('time out test commit??');
-// }).
-// on('rollback',function(err){
-	// console.log(err);
-// });
-
-test.query('insert transaction_test set test=?',[4000],function(err,result){
-	test.query('insert transaction_test set test=?',[3999],function(err,otherResult){
-		// you can skip the final callback function if you setup commit and rollback event listeners
-		// if you are not make event listeners, function throw error
-		test.query('insert transaction_test set test=?',[3998]);
-	});
-}).
-on('commit', function(){
-	console.log('nice auto commit');
-}).
-on('rollback',function(err){
-	console.log(err);
-});
-
-
-var testQuery = test.query('insert transaction_test set test=?',[5000],function(err,result){
-	test.query('insert transaction_test set test=?',[4999],function(err,otherResult){
-		test.query('insert transaction_test set test=?',[4998]);
-	});
-})
-
-testQuery.
-on('commit', function(){
-	console.log('nice auto commit 2');
-}).
-on('rollback',function(err){
-	console.log(err);
-});
-
 // */
 
 
@@ -292,8 +179,10 @@ on('rollback',function(err){
 
 // connection.set
 // connection.set is the base API for queue reservation
-// connection.chain/.query is wrapper of .set
-// simply connection.set doesn't have any sugar
+// connection.chain is wrapper of .set
+// simply connection.set doesn't have any transaction helper
+// in real world, you must to check error for every query request. 
+// and you must to select rollback or commit for each transaction capsule.
 
 // commit after event loop
 test.set(function(err, safeCon){
@@ -315,55 +204,65 @@ test.set(function(err, safeCon){
 				setTimeout(function(){
 					// .set transaction can work after several event loop.
 					safeCon.commit();
+          // if you forget commit or rollback work with only set, connection will be leak.
 				},0);
 			},0);
 		});
 	});
 });
 
-// Streaming query
+// event query
 test.set(function(err, safeCon){
-	safeCon.on('commit', function(){
+	safeCon.
+  on('commit', function(){
 		console.log('commit!');
-	});
-	safeCon.on('rollback', function(err){
+	}).
+  on('rollback', function(err){
 		console.log(err);
 	});
 	
 	reqQuery1 = safeCon.query('insert transaction_test set test=23');
 	reqQuery2 = safeCon.query('insert transaction_test set test=11');
 	
-	reqQuery1.on('result', function(result){
+	reqQuery1.
+  on('result', function(result){
 		// console.log(result);
 	});
-	reqQuery2.on('result', function(result){
+  
+	reqQuery2.
+  on('result', function(result){
 		safeCon.rollback('23 / 11 rollback yeap!')
 	});
 });
 
 test.set(function(err, safeCon){
-	safeCon.on('commit', function(){
+	safeCon.
+  on('commit', function(){
 		console.log('23371 commit!');
-	});
-	safeCon.on('rollback', function(err){
+	}).
+  on('rollback', function(err){
 		console.log(err);
 	});
+  
 	reqQuery1 = safeCon.query('insert transaction_test set test=23371');
 	reqQuery2 = safeCon.query('insert transaction_test set test=23371');
 	
-	reqQuery1.on('result', function(result){
+	reqQuery1.
+  on('result', function(result){
 		console.log('23371: ' + result.insertId);
 	});
-	reqQuery2.on('result', function(result){
+	reqQuery2.
+  on('result', function(result){
 		safeCon.commit()
 	});
 });
 
+// error handling with event query
 test.set(function(err, safeCon){
 	safeCon.on('commit', function(){
 		console.log('23731 commit!');
-	});
-	safeCon.on('rollback', function(err){
+	}).
+  on('rollback', function(err){
 		console.log('23731 rollback');
 		console.log(err);
 	});
@@ -372,12 +271,16 @@ test.set(function(err, safeCon){
 	reqQuery1 = safeCon.query('insert transaction_test set test=23731');
 	reqQuery2 = safeCon.query('insert transaction_test set test=?',['errrrrr']);
 	
-	reqQuery1.on('result', function(result){
+	reqQuery1.
+  on('result', function(result){
 		console.log('23731: ' + result.insertId);
 	});
-	reqQuery2.on('result', function(result){
+  
+	reqQuery2.
+  on('result', function(result){
 		safeCon.commit()
-	}).on('error', function(err){
+	}).
+  on('error', function(err){
 		safeCon.rollback(err);
 	});
 });
@@ -393,11 +296,14 @@ test.set(function(err, safeCon){
 	reqQuery1 = safeCon.query('insert transaction_test set test=?',[37301]);
 	reqQuery2 = safeCon.query('insert transaction_test set test=?',[37301]);
 	
-	reqQuery1.on('result', function(result){
+	reqQuery1.
+  on('result', function(result){
 		console.log('37301: ' + result.insertId);
 	});
-	// time out rollback
-	reqQuery2.on('result', function(result){
+	
+  // time out rollback
+	reqQuery2.
+  on('result', function(result){
 		setTimeout(function(){
 			safeCon.commit()
 		},1000);

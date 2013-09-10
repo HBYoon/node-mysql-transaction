@@ -12,14 +12,12 @@ var test = transaction({
 		password: 'test',
 		database: 'test'
 	}],
-	// parallel connection queue number
-	connectionNumber:4,
+	connectionNumber:0,
 	
-	// when queue length increase or queue length is longer than connectionNumber * 32, 
-	// make temporary connection for increased volume of async work.
-	dynamicConnection:2,
-	
-	// auto time out rollback in ms
+	dynamicConnection:32,
+  
+	idleConnectionCutoffTime: 100,
+  
 	timeOut:600
 });
 
@@ -38,11 +36,6 @@ for (var i = 0; i < to; i+=1) {
 				// I don't want any odd number!
 				safeCon.commit();
 				
-				
-				// query can not work after transaction end(commit or rollback)
-				// query('insert transaction_test set test=?',[num],function(err,result){
-					// console.log(err);//[Error: out of transaction]
-				// });
 			}
 			
 			// when after commit...oops!
@@ -54,6 +47,7 @@ for (var i = 0; i < to; i+=1) {
 				
 				// time per connectionNumber in 10000 loop in my pc with mariaDB 5.5
 				// better speed == more cpu usage
+        // 0.0.31
 				// 32 -> 112xx ~ 114xx ms
 				// 16 -> 113xx ~ 114xx ms -> full single cpu usage
 				// 8  -> 127xx ~ 128xx ms
@@ -61,6 +55,15 @@ for (var i = 0; i < to; i+=1) {
 				// 4  -> 164xx ~ 165xx ms
 				// 2  -> 272xx ~ 276xx ms
 				// 1  -> 395xx ~ 403xx ms
+        
+        // time per dynamicConnection
+        // improved in 0.1.0 ;-)
+        // 0.1.0
+        // 64 ->  31xx ~  32xx ms
+        // 32 ->  39xx ~  38xx ms -> full single cpu usage
+        // 16 ->  53xx ~  54xx ms
+        // 6  -> 101xx ~ 109xx ms
+        // 4  -> 148xx ~ 153xx ms
 			}
 		});
 	});

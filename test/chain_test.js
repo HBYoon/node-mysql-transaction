@@ -27,8 +27,6 @@ var test = transaction({
 // /* //<<<<<<<<<<<<<block
 
 // chain transaction API test
-
-
 var chain = test.chain();
 
 chain.
@@ -63,8 +61,6 @@ on('result', function(result){
 			chain.commit();
 		}).
 		autoCommit(false);
-		
-		// finally auto commit run
 	
 	// each chain set it's own auto commit function if you did not set auto commit off
 	// so must need auto commit off for make chain stream to after event loop
@@ -108,7 +104,7 @@ query('insert transaction_test set test=?',[16]).
 query('insert transaction_test set test=?',[17]).
 query('insert transaction_test set test=?',[18]).
 query('insert transaction_test set test=?',[19]).
-query('insert transaction_test set test=?',[20])
+query('insert transaction_test set test=?',[20]);
 
 // transaction chain with loop!!!
 var chain4 = test.chain();
@@ -121,7 +117,7 @@ on('rollback', function(err){
 }).
 setMaxListeners(0);
 
-for(var i = 0; i < 10; i+=1) {
+for(var i = 0; i < 5; i+=1) {
 	// working good :)
 	chain4.query('insert transaction_test set test=?',[i*100]);
 }
@@ -129,15 +125,15 @@ for(var i = 0; i < 10; i+=1) {
 var chain5 = test.chain();
 chain5.
 on('commit', function(){
-	console.log('chain4 commit');
+	console.log('chain5 commit');
 }).
 on('rollback', function(err){
-	console.log('chain4 rollback');
+	console.log('chain5 rollback');
 	console.log(err);
 }).
 setMaxListeners(0);
 
-for(var i = 0; i < 10; i+=1) {
+for(var i = 0; i < 30; i+=1) {
 	if (i===8) { i='error maker' }
 	chain5.query('insert transaction_test set test=?',[i*10000]);
 }
