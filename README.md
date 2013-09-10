@@ -276,9 +276,6 @@ trCon.end()
 removed
 
 
-```
-
-
 Update
 ---
 0.0.1: start
