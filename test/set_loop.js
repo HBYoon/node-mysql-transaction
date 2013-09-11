@@ -1,6 +1,8 @@
 // transaction test
 // tested with mysql 2.0 alpha
 
+// 0.1.0 pass 130911(yy/mm/dd)
+
 // test table query -> CREATE TABLE `transaction_test` (`num` INT(10) NULL AUTO_INCREMENT, `test` INT(10) NULL DEFAULT '0',PRIMARY KEY (`num`))COLLATE='latin1_swedish_ci'ENGINE=InnoDB;
 
 var mysql = require('mysql');
@@ -25,11 +27,13 @@ on('error', function(err){
   console.error(err);
 });
 
-// /* //<<<<<<<<<<<<<block
-
 // simple loop test
 var number = 0;
 var to = 10000;
+
+// /* //<<<<<<<<<<<<<block
+
+
 console.time('test');
 for (var i = 0; i < to; i+=1) {
 	// transaction set, most low level queue method
@@ -39,7 +43,6 @@ for (var i = 0; i < to; i+=1) {
 			if (!(num%2)) {
 				// I don't want any odd number!
 				safeCon.commit();
-				
 			}
 			
 			// when after commit...oops!
@@ -47,7 +50,6 @@ for (var i = 0; i < to; i+=1) {
 			safeCon.rollback();
 			if (num === to) {
 				console.timeEnd('test');
-				
 				
 				// time per connectionNumber in 10000 loop in my pc with mariaDB 5.5
 				// better speed == more cpu usage
@@ -77,9 +79,15 @@ for (var i = 0; i < to; i+=1) {
 
 /* //<<<<<<<<<<<<<block
 
+var testCon = mysql.createConnection({
+  user: 'test',
+  password: 'test',
+  database: 'test'
+});
+var count = 0;
 // odd number test
 for (var i = 0; i < to; i+=1) {
-	test.query('select test from transaction_test where num=?',[i+1],function(err,result){
+	testCon.query('select test from transaction_test where num=?',[i+1],function(err,result){
 		if (result) {
 			if (result[0]) {
 				if (result[0].test) {
@@ -89,6 +97,10 @@ for (var i = 0; i < to; i+=1) {
 				}
 			}
 		}
+    count += 1;
+    if (count === to) {
+      console.log('test end');
+    }
 	});
 };
 // */

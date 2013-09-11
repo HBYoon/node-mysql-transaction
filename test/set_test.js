@@ -1,6 +1,8 @@
 // transaction test
 // tested with mysql 2.0 alpha
 
+// 0.1.0 pass 130911(yy/mm/dd)
+
 // test table query -> CREATE TABLE `transaction_test` (`num` INT(10) NULL AUTO_INCREMENT, `test` INT(10) NULL DEFAULT '0',PRIMARY KEY (`num`))COLLATE='latin1_swedish_ci'ENGINE=InnoDB;
 
 var mysql = require('mysql');
@@ -27,8 +29,11 @@ on('error', function(err){
   console.log('on top level error');
   console.log(err);
 });
-
+// this type error will occur to the top level error.
 test.set('what?');
+
+// ** request work concurrently. so, result order can different.
+// test result vaule -> 1, 2, 7, 8
 
 // /* //<<<<<<<<<<<<<block
 
@@ -45,16 +50,16 @@ test.set(function(err, safeCon){
     return console.error(err);
   }
   safeCon.on('commit', function(){
-    console.log('79 / 71 commit, after several event loop');
+    console.log('1 / 2 commit, after several event loop');
   });
   safeCon.on('rollback', function(err){
     console.log(err);
   });
-  safeCon.query('insert transaction_test set test=?',[79],function(err,result){
+  safeCon.query('insert transaction_test set test=?',[1],function(err,result){
     if (err) {
       safeCon.rollback();
     }
-    safeCon.query('insert transaction_test set test=?',[71],function(err,result){
+    safeCon.query('insert transaction_test set test=?',[2],function(err,result){
       if (err) {
         safeCon.rollback(err);
       }
@@ -65,6 +70,35 @@ test.set(function(err, safeCon){
           // if you forget commit or rollback, connection will be leak.
         },0);
       },0);
+    });
+  });
+});
+
+// timeout rollback
+test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
+  safeCon.on('commit', function(){
+    console.log('3 / 4 commit, after several event loop');
+  });
+  safeCon.on('rollback', function(err){
+    console.log('3 / 4 rollback');
+    console.log(err);
+  });
+  safeCon.query('insert transaction_test set test=?',[3],function(err,result){
+    if (err) {
+      safeCon.rollback();
+    }
+    safeCon.query('insert transaction_test set test=?',[4],function(err,result){
+      if (err) {
+        safeCon.rollback(err);
+      }
+      setTimeout(function(){
+        // .set transaction can work after several event loop.
+        safeCon.commit();
+        // if you forget commit or rollback, connection will be leak.
+      },1000);
     });
   });
 });
@@ -84,17 +118,17 @@ test.set(function(err, safeCon){
 		console.log(err);
 	});
 	
-	reqQuery1 = safeCon.query('insert transaction_test set test=23');
-	reqQuery2 = safeCon.query('insert transaction_test set test=11');
+	reqQuery1 = safeCon.query('insert transaction_test set test=5');
+	reqQuery2 = safeCon.query('insert transaction_test set test=6');
 	
 	reqQuery1.
   on('result', function(result){
-		// console.log(result);
+		console.log(result);
 	});
   
 	reqQuery2.
   on('result', function(result){
-		safeCon.rollback('23 / 11 rollback yeap!')
+		safeCon.rollback('5 / 6 rollback!')
 	});
 });
 
@@ -104,23 +138,33 @@ test.set(function(err, safeCon){
   }
 	safeCon.
   on('commit', function(){
-		console.log('23371 commit!');
+		console.log('7 / 8 commit!');
 	}).
   on('rollback', function(err){
 		console.log(err);
 	});
   
-	reqQuery1 = safeCon.query('insert transaction_test set test=23371');
-	reqQuery2 = safeCon.query('insert transaction_test set test=23371');
+	reqQuery1 = safeCon.query('insert transaction_test set test=7');
+	reqQuery2 = safeCon.query('insert transaction_test set test=8');
+  
+  var insertNumber = 2;
+  var resultCount = 0;
+  
+  function resultOn (result) {
+    resultCount += 1;
+    if (resultCount === insertNumber) {
+      safeCon.commit();
+    }
+  };
 	
 	reqQuery1.
   on('result', function(result){
-		console.log('23371: ' + result.insertId);
-	});
+		console.log('7: ' + result.insertId);
+	}).
+  on('result', resultOn);
+  
 	reqQuery2.
-  on('result', function(result){
-		safeCon.commit()
-	});
+  on('result', resultOn);
 });
 
 // error handling with event query
@@ -129,20 +173,20 @@ test.set(function(err, safeCon){
     return console.error(err);
   }
   safeCon.on('commit', function(){
-    console.log('23731 commit!');
+    console.log('9 / errrrrr commit!');
   }).
   on('rollback', function(err){
-    console.log('23731 rollback');
+    console.log('9 / errrrrr rollback');
     console.log(err);
   });
 
   // input type error value
-  reqQuery1 = safeCon.query('insert transaction_test set test=23731');
+  reqQuery1 = safeCon.query('insert transaction_test set test=9');
   reqQuery2 = safeCon.query('insert transaction_test set test=?',['errrrrr']);
 
   reqQuery1.
   on('result', function(result){
-    console.log('23731: ' + result.insertId);
+    console.log('9: ' + result.insertId);
   }).
   on('error', function(err){
     safeCon.rollback(err);
@@ -152,9 +196,7 @@ test.set(function(err, safeCon){
   on('result', function(result){
     safeCon.commit()
   }).
-  on('error', function(err){
-    safeCon.rollback(err);
-  });
+  on('error', safeCon.rollback.bind(safeCon));
 });
 
 test.set(function(err, safeCon){
@@ -162,18 +204,18 @@ test.set(function(err, safeCon){
     return console.error(err);
   }
 	safeCon.on('commit', function(){
-		console.log('37301 commit!');
+		console.log('11 / 12 commit!');
 	});
 	safeCon.on('rollback', function(err){
-		console.log('37301 rollback');
+		console.log('11 / 12 rollback');
 		console.log(err);
 	});
-	reqQuery1 = safeCon.query('insert transaction_test set test=?',[37301]);
-	reqQuery2 = safeCon.query('insert transaction_test set test=?',[37301]);
+	reqQuery1 = safeCon.query('insert transaction_test set test=?',[11]);
+	reqQuery2 = safeCon.query('insert transaction_test set test=?',[12]);
 	
 	reqQuery1.
   on('result', function(result){
-		console.log('37301: ' + result.insertId);
+		console.log('11: ' + result.insertId);
 	});
 	
   // time out rollback

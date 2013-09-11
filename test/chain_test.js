@@ -1,6 +1,8 @@
 // transaction test
 // tested with mysql 2.0 alpha
 
+// 0.1.0 pass 130911(yy/mm/dd)
+
 // test table query -> CREATE TABLE `transaction_test` (`num` INT(10) NULL AUTO_INCREMENT, `test` INT(10) NULL DEFAULT '0',PRIMARY KEY (`num`))COLLATE='latin1_swedish_ci'ENGINE=InnoDB;
 
 var mysql = require('mysql');
@@ -23,6 +25,8 @@ var test = transaction({
 	timeOut:600
 });
 
+
+// result vaule -> 1 ~ 7 / 19 ~ 29 / 
 
 // /* //<<<<<<<<<<<<<block
 
@@ -51,16 +55,12 @@ on('result', function(result){
 	query('insert transaction_test set test=?',[3]).
 	on('result',function(result){
 		console.log('3: '+result.insertId);
-		// chain rush
+		// auto commit on
 		chain.
-		query('insert transaction_test set test=?',[result.insertId]).
-		query('insert transaction_test set test=?',[7]).
-		query('insert transaction_test set test=?',[8]).
-		query('insert transaction_test set test=?',[9]).
-		on('result', function(){
-			chain.commit();
-		}).
-		autoCommit(false);
+		query('insert transaction_test set test=?',[4]).
+		query('insert transaction_test set test=?',[5]).
+		query('insert transaction_test set test=?',[6]).
+		query('insert transaction_test set test=?',[7]);
 	
 	// each chain set it's own auto commit function if you did not set auto commit off
 	// so must need auto commit off for make chain stream to after event loop
@@ -78,19 +78,20 @@ on('rollback', function(err){
 	console.log('chain2 rollback');
 	console.log(err);
 }).
-query('insert transaction_test set test=?',[10]).
+query('insert transaction_test set test=?',[8]).
 on('result', function(result){
 	chain2.
-	query('insert transaction_test set test=?',[11]).
-	query('insert transaction_test set test=?',[12]).
+	query('insert transaction_test set test=?',[9]).
+	query('insert transaction_test set test=?',[10]).
 	on('result',function(result){
 		// chain with error
 		chain2.
 		query('insert transaction_test set test=?',['err']).
-		query('insert transaction_test set test=?',[14])
+		query('insert transaction_test set test=?',[12])
 	}).autoCommit(false);
 }).autoCommit(false);
 
+// timeout test
 var chain3 = test.chain();
 chain3.
 on('commit', function(){
@@ -99,12 +100,13 @@ on('commit', function(){
 on('rollback', function(err){
 	console.log(err);
 }).
+query('insert transaction_test set test=?',[13]).
+query('insert transaction_test set test=?',[14]).
 query('insert transaction_test set test=?',[15]).
 query('insert transaction_test set test=?',[16]).
 query('insert transaction_test set test=?',[17]).
 query('insert transaction_test set test=?',[18]).
-query('insert transaction_test set test=?',[19]).
-query('insert transaction_test set test=?',[20]);
+autoCommit(false);
 
 // transaction chain with loop!!!
 var chain4 = test.chain();
@@ -114,12 +116,11 @@ on('commit', function(){
 }).
 on('rollback', function(err){
 	console.log(err);
-}).
-setMaxListeners(0);
+});
 
-for(var i = 0; i < 5; i+=1) {
+for(var i = 19; i < 30; i+=1) {
 	// working good :)
-	chain4.query('insert transaction_test set test=?',[i*100]);
+	chain4.query('insert transaction_test set test=?',[i]);
 }
 
 var chain5 = test.chain();
@@ -130,12 +131,13 @@ on('commit', function(){
 on('rollback', function(err){
 	console.log('chain5 rollback');
 	console.log(err);
-}).
-setMaxListeners(0);
+});
 
-for(var i = 0; i < 30; i+=1) {
-	if (i===8) { i='error maker' }
-	chain5.query('insert transaction_test set test=?',[i*10000]);
+var k
+for(var i = 30; i < 90; i+=1) {
+  k = i;
+	if (i===88) { k='error maker' }
+	chain5.query('insert transaction_test set test=?',[k]);
 }
 
 // */

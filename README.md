@@ -12,16 +12,17 @@ npm install node-mysql-transaction
 ```
 
 
-Make transaction connection
+Make transaction object
 ---
 ```
 // tested mysql2.0.0-alpha7
 var mysql = require('mysql');
 
-var transaction =  require('node-mysql-transaction');
+var transaction = require('node-mysql-transaction');
 var trCon = transaction({
   // mysql driver set 
   connection: [mysql.createConnection,{
+    // mysql connection config
     user: ...,
     password: ...,
     database: ...,
@@ -35,7 +36,7 @@ var trCon = transaction({
   dynamicConnection: 32,
   
   // set dynamicConnection soft removing time.
-  idleConnectionCutoffTime: 600,
+  idleConnectionCutoffTime: 1000,
   
   // auto timeout rollback time in ms
   // turn off is 0
@@ -203,7 +204,7 @@ trCon.set(function(err, safeCon){
     return console.log(err);
   }
   safeCon.on('commit', function(){
-    console.log('79 / 71 commit, after several event loop');
+    console.log('commit');
   });
   safeCon.on('rollback', function(err){
     console.log(err);
@@ -216,10 +217,10 @@ trCon.set(function(err, safeCon){
       if (err) {
         safeCon.rollback(err);
       }
-	  // .set transaction can work after several event loop.
-	  // if you forget commit or rollback, 
-	  // and no timeout setting, connection will be leak.
-	  safeCon.commit();
+      // .set transaction can work after several event loop.
+      // if you forget commit or rollback, 
+      // and no timeout setting, connection will be leak.
+      safeCon.commit();
     });
   });
 });
@@ -233,29 +234,34 @@ test.set(function(err, safeCon){
     return console.log(err);
   }
   safeCon.on('commit', function(){
-    console.log('23731 commit!');
+    console.log('commit!');
   }).
   on('rollback', function(err){
-    console.log('23731 rollback');
+    console.log('rollback');
     console.log(err);
   });
-
+  
+  var insertNumber = 2;
+  var resultCount = 0;
+  
   reqQuery1 = safeCon.query('insert ......', [...]);
   reqQuery2 = safeCon.query('insert ......', [...]);
-
+  
+  function resultOn (result) {
+    resultCount += 1;
+	if (resultCount === insertNumber) {
+	  safeCon.commit();
+	}
+  };
+  
   reqQuery1.
-  on('result', function(result){
-    console.log('23731: ' + result.insertId);
-  }).
-  on('error', function(err){
-    safeCon.rollback(err);
-  });
+  on('result', resultOn).
+  on('error',  safeCon.rollback.bind(safeCon));
 
   reqQuery2.
-  on('result', function(result){
-    safeCon.commit()
-  }).
-  on('error', function(err){
+  on('result', resultOn).
+  on('error',  function(err){
+    // safeCon.rollback.bind(safeCon) doing same work of this function.
     safeCon.rollback(err);
   });
 });
@@ -263,7 +269,7 @@ test.set(function(err, safeCon){
 
 ###top level error handling
 
-every fatal connection error and basic transaction query(START TRANSACTION, COMMIT, ROLLBACK) error and request queue's type error will bubble to the top transaction object. this bubbled error will link to the current transaction work on failed connections too, if it possible.
+Every fatal connection error and basic transaction query(START TRANSACTION, COMMIT, ROLLBACK) error and request queue's type error will bubble to the top transaction object. This bubbled error will link to the current transaction work on failed connections too, if it possible.
 
 ```
 var transaction =  require('node-mysql-transaction');
@@ -281,6 +287,8 @@ trCon.on('error', function(err){
   }
 });
 ```
+
+If you don't set listener for top level error, the top level error is bubbled to the process and kill the process. For internal error recovery (simply, it will remove failed connection and create new one for next transaction request), you must take top level error event before.
 
 ###Terminating
 
