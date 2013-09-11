@@ -10,7 +10,8 @@ var test = transaction({
 	connection: [mysql.createConnection,{
 		user: 'test',
 		password: 'test',
-		database: 'test'
+		database: 'test',
+    //port: 9090,
 	}],
 	// parallel connection queue number
 	staticConnection:0,
@@ -23,9 +24,11 @@ var test = transaction({
 	timeOut:600
 }).
 on('error', function(err){
-  console.log('on connection error');
+  console.log('on top level error');
   console.log(err);
 });
+
+test.set('what?');
 
 // /* //<<<<<<<<<<<<<block
 
@@ -38,6 +41,9 @@ on('error', function(err){
 
 // commit after event loop
 test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
   safeCon.on('commit', function(){
     console.log('79 / 71 commit, after several event loop');
   });
@@ -67,6 +73,9 @@ test.set(function(err, safeCon){
 
 // event query
 test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
 	safeCon.
   on('commit', function(){
 		console.log('commit!');
@@ -90,6 +99,9 @@ test.set(function(err, safeCon){
 });
 
 test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
 	safeCon.
   on('commit', function(){
 		console.log('23371 commit!');
@@ -113,6 +125,9 @@ test.set(function(err, safeCon){
 
 // error handling with event query
 test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
   safeCon.on('commit', function(){
     console.log('23731 commit!');
   }).
@@ -143,6 +158,9 @@ test.set(function(err, safeCon){
 });
 
 test.set(function(err, safeCon){
+  if (err) {
+    return console.error(err);
+  }
 	safeCon.on('commit', function(){
 		console.log('37301 commit!');
 	});

@@ -42,14 +42,6 @@ var trCon = transaction({
   timeout:600
 });
 
-// listener of bubbled exception from connections.
-trCon.on('error', function(err){
-  // internal error handling was completed
-  // use for logging or end method caller
-  ...
-  trCon.end();
-});
-
 ```
 
 
@@ -58,7 +50,7 @@ Introduction
 
 ###transaction chain
 
-.chain method is transaction version of original mysql driver's Streaming query. Easily, you can make a bundling query request.
+Transaction chain method is a transaction version of original mysql driver's Streaming query. Easily, you can make a bundling query request.
 
 
 Make chain
@@ -178,9 +170,9 @@ chain.
 query('insert ...').
 on('error', function(err){
   console.log(err);
-  // now auto rollback is turned off
+  // now auto rollback is turned off for this error.
 }).
-// other queries auto rollback is still works
+// other queries auto rollback is still works.
 query('insert ...').
 ...
 ```
@@ -204,9 +196,12 @@ for(var i = 0; i < 10; i+=1) {
 ```
 
 ###transaction set
-Transaction chain is the application layer of the transaction set. You can use this set method for transaction, also. But connection set doesn't have any transaction helper, like transaction chain. So, you must to check error for every query request. And you must to select rollback or commit for each transaction capsule.
+Transaction chain is the application layer of the transaction set. You can use this set method for transaction, also. But connection set doesn't have any transaction helper, unlike transaction chain. So, you must to check error for every query request. And you must to select rollback or commit for each transaction capsule.
 ```
 trCon.set(function(err, safeCon){
+  if (err) {
+    return console.log(err);
+  }
   safeCon.on('commit', function(){
     console.log('79 / 71 commit, after several event loop');
   });
@@ -234,6 +229,9 @@ Event provide better way for transaction in some case.
 
 ```
 test.set(function(err, safeCon){
+  if (err) {
+    return console.log(err);
+  }
   safeCon.on('commit', function(){
     console.log('23731 commit!');
   }).
@@ -260,6 +258,27 @@ test.set(function(err, safeCon){
   on('error', function(err){
     safeCon.rollback(err);
   });
+});
+```
+
+###top level error handling
+
+every fatal connection error and basic transaction query(START TRANSACTION, COMMIT, ROLLBACK) error and request queue's type error will bubble to the top transaction object. this bubbled error will link to the current transaction work on failed connections too, if it possible.
+
+```
+var transaction =  require('node-mysql-transaction');
+var trCon = transaction({ ...... });
+
+// listener of bubbled exception from connections.
+var fatalCount = 0;
+trCon.on('error', function(err){
+  // internal error handling will work after this listener.
+  // use for logging or end method caller.
+  ...
+  fatalCount += 1;
+  if (fatalCount > 80) {
+    trCon.end();
+  }
 });
 ```
 

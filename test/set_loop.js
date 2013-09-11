@@ -19,6 +19,10 @@ var test = transaction({
 	idleConnectionCutoffTime: 100,
   
 	timeOut:600
+}).
+on('error', function(err){
+  console.log('on bubble');
+  console.error(err);
 });
 
 // /* //<<<<<<<<<<<<<block
