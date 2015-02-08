@@ -1,7 +1,7 @@
 {
   "name": "node-mysql-transaction",
-  "version": "0.1.0",
-  "description": "transactions wrapper for node-mysql 2.0 driver",
+  "version": "0.2.0",
+  "description": "transactions wrapper for node-mysql 2.X driver",
   "main": "index.js",
   "directories": {
     "test": "test"
@@ -19,7 +19,7 @@
     "transaction"
   ],
   "engines": {
-    "node": "0.10.x"
+    "node": "0.12.x"
   },
   "author": "Yoon, Hyuk-Beom",
   "license": "MIT",
