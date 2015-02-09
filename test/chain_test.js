@@ -1,8 +1,8 @@
 // transaction test
-// tested with mysql 2.5.4, mariaDB 10.0.16
 
-// 0.1.0 pass 130911(yy/mm/dd)
-// 0.2.0 pass 150208
+//           (yy/mm/dd)
+// 0.1.0 pass 13/09/11
+// 0.2.0 pass 15/02/09: node-mysql 2.5.4, mariaDB 10.0.16
 
 // test table query -> CREATE TABLE `transaction_test` (`num` INT(10) NULL AUTO_INCREMENT, `test` INT(10) NULL DEFAULT '0',PRIMARY KEY (`num`))COLLATE='latin1_swedish_ci'ENGINE=InnoDB;
 
@@ -28,8 +28,6 @@ var test = transaction({
 
 
 // result vaule -> 1 ~ 7 / 19 ~ 29 / 
-
-// /* //<<<<<<<<<<<<<block
 
 // chain transaction API test
 var chain = test.chain();
@@ -59,6 +57,9 @@ on('result', function(result){
 		// auto commit on
 		chain.
 		query('insert transaction_test set test=?',[4]).
+    on('commit', function(){
+      console.log('chain1-2 commit msg');
+    }).
 		query('insert transaction_test set test=?',[5]).
 		query('insert transaction_test set test=?',[6]).
 		query('insert transaction_test set test=?',[7]);
@@ -76,18 +77,19 @@ on('commit', function(){
 	console.log('chain2 commit');
 }).
 on('rollback', function(err){
-	console.log('chain2 rollback');
-	console.log(err);
+  console.log('chain2 rollback');
+  console.log(err);
 }).
 query('insert transaction_test set test=?',[8]).
 on('result', function(result){
 	chain2.
 	query('insert transaction_test set test=?',[9]).
+  
 	query('insert transaction_test set test=?',[10]).
 	on('result',function(result){
 		// chain with error
 		chain2.
-		query('insert transaction_test set test=?',['err']).
+		query('insert transaction_test set test=?',['errrrr']).
 		query('insert transaction_test set test=?',[12])
 	}).autoCommit(false);
 }).autoCommit(false);
@@ -99,6 +101,7 @@ on('commit', function(){
 	console.log('chain3 commit');
 }).
 on('rollback', function(err){
+  console.log('chain3 rollback');
 	console.log(err);
 }).
 query('insert transaction_test set test=?',[13]).
@@ -140,5 +143,36 @@ for(var i = 30; i < 90; i+=1) {
 	if (i===88) { k='error maker' }
 	chain5.query('insert transaction_test set test=?',[k]);
 }
+
+//chain error test-2
+var chain6 = test.chain();
+
+chain6.
+on('commit', function(){
+	console.log('chain6 commit');
+}).
+on('rollback', function(err){
+  console.log('chain6 rollback');
+  console.log(err);
+}).
+query('insert transaction_test set test=?',[91]).
+on('result', function(result){
+	chain6.
+	query('insert transaction_test set test=?',[92]).
+  
+	query('insert transaction_test set test=?',[93]).
+	on('result',function(result){
+		// chain with error
+		chain6.
+		query('insert transaction_test set test=?',['eroror']).
+    on('error', function(err){
+      console.log('error on chain6, manual rollback, after 800 ms');
+      setTimeout(function(){
+        chain6.rollback(err);
+      }, 800);
+    }).
+		query('insert transaction_test set test=?',[95]);
+	}).autoCommit(false);
+}).autoCommit(false);
 
 // */

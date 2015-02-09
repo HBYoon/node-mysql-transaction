@@ -1,7 +1,7 @@
 node-mysql-transaction
 ===
 #### transaction wrapper for mysql driver
-based on node-mysql: https://github.com/felixge/node-mysql
+based on node-mysql 2.x driver: https://github.com/felixge/node-mysql
 
 node-mysql-transaction is run by single callback function queue with dynamic connection pool structure.
 
@@ -15,7 +15,6 @@ npm install node-mysql-transaction
 Make transaction object
 ---
 ```
-// tested mysql2.0.0-alpha7
 var mysql = require('mysql');
 
 var transaction = require('node-mysql-transaction');
@@ -73,9 +72,9 @@ query('insert ...');
 
 ```
 
-When after transaction complete, auto commit run and emit 'commit' event. If error occur in a transaction query chain, then auto rollback run and emit 'rollback' event.
+When transaction completed without errors, autocommit of transaction will running and emit 'commit' events. If error occur in a transaction query chain, auto rollback will running and emit 'rollback' event. at occurring the error condition, autocommit will canceling.
 
-Auto commit can off.
+Auto commit can off at tail of chains.
 
 ```
 var chain = trCon.chain();
@@ -89,9 +88,6 @@ on('rollback', function(err){
 });
 
 chain.
-query('insert ...').
-query('insert ...').
-query('insert ...').
 query('insert ...').
 on('result', function(result){
   chain.commit();
@@ -197,7 +193,7 @@ for(var i = 0; i < 10; i+=1) {
 ```
 
 ###transaction set
-Transaction chain is the application layer of the transaction set. You can use this set method for transaction, also. But connection set doesn't have any transaction helper, unlike transaction chain. So, you must to check error for every query request. And you must to select rollback or commit for each transaction capsule.
+Transaction chain method is the application layer of the transaction set method. You can use the set method for transaction. But transaction set doesn't have any transaction helper, unlike transaction chain. So, you must to check error for every query request. And you must to select rollback or commit for each transaction capsule.
 ```
 trCon.set(function(err, safeCon){
   if (err) {
@@ -269,7 +265,7 @@ test.set(function(err, safeCon){
 
 ###top level error handling
 
-Every fatal connection error and basic transaction query(START TRANSACTION, COMMIT, ROLLBACK) error and request queue's type error will bubble to the top transaction object. This bubbled error will link to the current transaction work on failed connections too, if it possible.
+Every fatal connection error and basic transaction query(START TRANSACTION, COMMIT, ROLLBACK) error and request queue's type error will bubbled to the top transaction object. and this bubbled error will emit rollback event to current transactions connection object.
 
 ```
 var transaction =  require('node-mysql-transaction');
@@ -298,23 +294,8 @@ Call end method. Method sending error to all callback function in the queue and 
 trCon.end()
 ```
 
-###transaction query
-
-removed
-
 
 Update
 ---
-0.0.1: start
-
-0.0.2: Improvement of queue set structure. before, multi queue, multi connections -> now, single queue multi connections. Minor API change, but not about query, chain method
-
-0.0.22: Transaction can work only dynamic connection without any static connection.
-
-0.0.23: fix process.nextTick recursive. now module fit to the node.js 0.10
-
-0.0.3: default chain method setMaxListeners is 0. code and internal API update.
-
-0.0.31: query method update.
-
-0.1.0: redesigned internal connection pool and queue. pool and queue performance improved. more solid error handling.  removed query method. bug fix. internal API changed, but minimum userland change.
+0.1.0: redesigned internal connection pool and queue. pool and queue performance improved. more solid error handling. removed query method. bug fix. internal API changed, but minimum userland change.
+0.2.0: chain method update for node.js 0.12. improved autocommit canceler. improved chain event handling

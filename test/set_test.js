@@ -1,8 +1,8 @@
 // transaction test
-// tested with mysql 2.5.4, mariaDB 10.0.16
 
-// 0.1.0 pass 130911(yy/mm/dd)
-// 0.2.0 pass 150208
+//           (yy/mm/dd)
+// 0.1.0 pass 13/09/11
+// 0.2.0 pass 15/02/09: node-mysql 2.5.4, mariaDB 10.0.16
 
 // test table query -> CREATE TABLE `transaction_test` (`num` INT(10) NULL AUTO_INCREMENT, `test` INT(10) NULL DEFAULT '0',PRIMARY KEY (`num`))COLLATE='latin1_swedish_ci'ENGINE=InnoDB;
 
@@ -30,6 +30,7 @@ on('error', function(err){
   console.log('on top level error');
   console.log(err);
 });
+
 // this type error will occur to the top level error.
 test.set('what?');
 

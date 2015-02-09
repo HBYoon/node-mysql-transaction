@@ -19,7 +19,7 @@
     "transaction"
   ],
   "engines": {
-    "node": "0.12.x"
+    "node": "0.12"
   },
   "author": "Yoon, Hyuk-Beom",
   "license": "MIT",
