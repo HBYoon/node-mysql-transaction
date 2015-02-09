@@ -298,4 +298,5 @@ trCon.end()
 Update
 ---
 0.1.0: redesigned internal connection pool and queue. pool and queue performance improved. more solid error handling. removed query method. bug fix. internal API changed, but minimum userland change.
+
 0.2.0: chain method update for node.js 0.12. improved autocommit canceler. improved chain event handling
